@@ -5,8 +5,9 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Domain.Entities;
 using PaymentService.Domain.Repositories;
+using PaymentService.Infrastructure;
 
-namespace PaymentService.Infrastructure.Repositories
+namespace PaymentService.Application.Repositories
 {
     public class PaymentTransactionRepository : IPaymentTransactionRepository
     {

@@ -5,8 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Application.Repositories;
-using PaymentService.Application.Repositories.Interfaces;
 using PaymentService.Application.Services.Interfaces;
+using PaymentService.Domain.Repositories;
 using PaymentService.Infrastructure;
 
 namespace PaymentService
@@ -27,15 +27,16 @@ namespace PaymentService
             // Configure EF Core with MySQL
             services.AddDbContext<PaymentDbContext>(options =>
                 options.UseMySql(
-                    _configuration.GetConnectionString("PaymentDatabase"),
-                    ServerVersion.AutoDetect(_configuration.GetConnectionString("PaymentDatabase"))
+                    _configuration.GetConnectionString("DefaultConnection"),
+                    ServerVersion.AutoDetect(_configuration.GetConnectionString("DefaultConnection"))
                 )
             );
             
             // Register repositories and services
-            services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IPaymentService, Application.Services.PaymentService>();
 
+            services.AddScoped<ITopupRepository, TopupRepository>();
+            services.AddScoped<IPaymentTransactionRepository, PaymentTransactionRepository>();
             // Add Swagger services
             services.AddSwaggerGen();
         }

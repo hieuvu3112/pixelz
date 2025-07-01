@@ -11,23 +11,21 @@ namespace PaymentService.Api
     [Route("[controller]")]
     public class PaymentsController : ControllerBase
     {
-        private readonly IPaymentService _paymentService;
         private readonly ILogger<PaymentsController> _logger;
 
-        public PaymentsController(IPaymentService paymentService, ILogger<PaymentsController> logger)
+        public PaymentsController(ILogger<PaymentsController> logger)
         {
-            _paymentService = paymentService;
             _logger = logger;
         }
 
         // POST /payments
         [HttpPost]
-        public async Task<IActionResult> ProcessPayment([FromBody] PaymentRequest request)
+        public async Task<IActionResult> ProcessPayment([FromBody] PaymentRequest request, [FromServices] IPaymentService paymentService)
         {
             _logger.LogInformation($"Processing payment for order: {request.OrderId}");
             try
             {
-                var result = await _paymentService.ProcessPaymentAsync(request);
+                var result = await paymentService.ProcessPaymentAsync(request);
                 
                 return Ok(new { 
                     Success = result.Success,
