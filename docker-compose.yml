@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "22181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "29093:29093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092,CONTROLLER://kafka:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2QkI1RjA3QTdENjVBRUU1'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2QkI1RjA3QTdENjVBRUU1'
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://kafka:29093'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: pixelz123
+      MYSQL_DATABASE: pixelz
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  order-service:
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=mysql;Database=pixelz_orders;User=root;Password=pixelz123
+      - Kafka__BootstrapServers=kafka:9092
+      - MassTransit__Host=order-service
+      - ServiceSettings__ServiceName=OrderService
+    ports:
+      - "8081:8080"
+    depends_on:
+      - kafka
+      - mysql
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=mysql;Database=pixelz_payments;User=root;Password=pixelz123
+      - Kafka__BootstrapServers=kafka:9092
+      - MassTransit__Host=payment-service
+      - ServiceSettings__ServiceName=PaymentService
+    depends_on:
+      - kafka
+      - mysql
+
+  invoice-service:
+    build:
+      context: .
+      dockerfile: invoice-service/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=mysql;Database=pixelz_invoices;User=root;Password=pixelz123
+      - Kafka__BootstrapServers=kafka:9092
+      - MassTransit__Host=invoice-service
+      - ServiceSettings__ServiceName=InvoiceService
+    depends_on:
+      - kafka
+      - mysql
+
+  email-service:
+    build:
+      context: .
+      dockerfile: email-service/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=mysql;Database=pixelz_emails;User=root;Password=pixelz123
+      - Kafka__BootstrapServers=kafka:9092
+      - MassTransit__Host=email-service
+      - ServiceSettings__ServiceName=EmailService
+    depends_on:
+      - kafka
+      - mysql
+
+  production-service:
+    build:
+      context: .
+      dockerfile: production-service/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=mysql;Database=pixelz_production;User=root;Password=pixelz123
+      - Kafka__BootstrapServers=kafka:9092
+      - MassTransit__Host=production-service
+      - ServiceSettings__ServiceName=ProductionService
+    depends_on:
+      - kafka
+      - mysql
+
+  transaction-service:
+    build:
+      context: .
+      dockerfile: transaction-service/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=mysql;Database=pixelz_transactions;User=root;Password=pixelz123
+      - Kafka__BootstrapServers=kafka:9092
+      - MassTransit__Host=transaction-service
+      - ServiceSettings__ServiceName=TransactionService
+    depends_on:
+      - kafka
+      - mysql
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+
+volumes:
+  mysql-data:
+  grafana-data:
+  prometheus-data:
+
+networks:
+  default:
+    name: pixelz-network

@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'order-service'
+    static_configs:
+      - targets: ['order-service:80']
+
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:80']
+
+  - job_name: 'invoice-service'
+    static_configs:
+      - targets: ['invoice-service:80']
+
+  - job_name: 'email-service'
+    static_configs:
+      - targets: ['email-service:80']
+
+  - job_name: 'production-service'
+    static_configs:
+      - targets: ['production-service:80']
+
+  - job_name: 'transaction-service'
+    static_configs:
+      - targets: ['transaction-service:80']
