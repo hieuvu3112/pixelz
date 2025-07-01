@@ -49,7 +49,7 @@ namespace Shared.Events
     public class ProductionFailedEvent
     {
         public Guid CorrelationId { get; set; }
-        public int OrderId { get; set; }
+        public string OrderId { get; set; }
         public string OrderName { get; set; }
         public string FailureReason { get; set; }
         public string ErrorCode { get; set; }
