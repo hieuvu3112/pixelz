@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using OrderService.Domain;
 using OrderService.Infrastructure;
 using Shared.Events;
+using GraphQL;
+using GraphQL.Types;
+using OrderService.GraphQL;
 
 namespace OrderService.Api;
 
@@ -17,24 +20,70 @@ public class OrderController : ControllerBase
 {
     private readonly OrderDbContext _context;
     private readonly ITopicProducer<OrderCheckedOutEvent> _producer;
+    private readonly IDocumentExecuter _documentExecuter;
+    private readonly ISchema _schema;
 
-    public OrderController(OrderDbContext context, ITopicProducer<OrderCheckedOutEvent> producer)
+    public OrderController(OrderDbContext context, ITopicProducer<OrderCheckedOutEvent> producer, 
+        IDocumentExecuter documentExecuter, ISchema schema)
     {
         _context = context;
         _producer = producer;
+        _documentExecuter = documentExecuter;
+        _schema = schema;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Order>>> GetOrders([FromQuery] string name)
+    public async Task<IActionResult> GetOrders(
+        [FromQuery] string name,
+        [FromQuery] string status,
+        [FromQuery] int? customerId,
+        [FromQuery] decimal? minAmount,
+        [FromQuery] decimal? maxAmount,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var query = _context.Orders.AsQueryable();
-        
-        if (!string.IsNullOrEmpty(name))
+        var query = @"
+            query GetOrders($name: String, $status: String, $customerId: Int, $minAmount: Decimal, $maxAmount: Decimal, $fromDate: DateTime, $toDate: DateTime, $page: Int, $pageSize: Int) {
+                orders(name: $name, status: $status, customerId: $customerId, minAmount: $minAmount, maxAmount: $maxAmount, fromDate: $fromDate, toDate: $toDate, page: $page, pageSize: $pageSize) {
+                    id
+                    name
+                    customerId
+                    amount
+                    status
+                    createdAt
+                }
+            }";
+
+        var result = await _documentExecuter.ExecuteAsync(new ExecutionOptions
         {
-            query = query.Where(o => o.Name.Contains(name));
+            Schema = _schema,
+            Query = query,
+            Variables = new Inputs(new Dictionary<string, object?>
+            {
+                ["name"] = name,
+                ["status"] = status,
+                ["customerId"] = customerId,
+                ["minAmount"] = minAmount,
+                ["maxAmount"] = maxAmount,
+                ["fromDate"] = fromDate,
+                ["toDate"] = toDate,
+                ["page"] = page,
+                ["pageSize"] = pageSize
+            }),
+            UserContext = new Dictionary<string, object?>
+            {
+                ["dbContext"] = _context
+            }
+        });
+
+        if (result.Errors?.Any() == true)
+        {
+            return BadRequest(result.Errors);
         }
-        
-        return await query.ToListAsync();
+
+        return Ok(result.Data);
     }
 
     [HttpPost("{id}/checkout")]

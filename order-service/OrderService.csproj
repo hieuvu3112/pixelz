@@ -5,6 +5,9 @@
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="GraphQL" Version="8.5.0" />
+    <PackageReference Include="GraphQL.Server.Core" Version="5.2.2" />
+    <PackageReference Include="GraphQL.SystemTextJson" Version="8.5.0" />
     <PackageReference Include="MassTransit" Version="8.5.0" />
     <PackageReference Include="MassTransit.Kafka" Version="8.5.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.IO;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -7,6 +9,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OrderService.Infrastructure;
 using Shared.Events;
+using GraphQL;
+using GraphQL.Types;
+using Microsoft.AspNetCore.Http;
+using OrderService.GraphQL;
+using OrderService.GraphQL.Types;
+using OrderService.GraphQL.Queries;
 
 namespace OrderService
 {
@@ -40,13 +48,23 @@ namespace OrderService
                 });
             });
 
+            // Add GraphQL services
+            services.AddScoped<OrderType>();
+            services.AddScoped<OrderConnectionType>();
+            services.AddScoped<OrderQuery>();
+            services.AddScoped<ISchema, OrderSchema>();
+            services.AddScoped<IDocumentExecuter, DocumentExecuter>();
+
             // Add Swagger services
             services.AddSwaggerGen();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            if (env.IsDevelopment()) app.UseDeveloperExceptionPage();
+            if (env.IsDevelopment()) 
+            {
+                app.UseDeveloperExceptionPage();
+            }
 
             // Enable Swagger middleware
             app.UseSwagger();
@@ -57,7 +75,39 @@ namespace OrderService
             });
 
             app.UseRouting();
-            app.UseEndpoints(endpoints => endpoints.MapControllers());
+            
+            app.UseEndpoints(endpoints => 
+            {
+                endpoints.MapControllers();
+                endpoints.MapPost("/graphql", async context =>
+                {
+                    var documentExecuter = context.RequestServices.GetRequiredService<IDocumentExecuter>();
+                    var schema = context.RequestServices.GetRequiredService<ISchema>();
+                    var dbContext = context.RequestServices.GetRequiredService<OrderDbContext>();
+                    
+                    var json = await new StreamReader(context.Request.Body).ReadToEndAsync();
+                    var query = System.Text.Json.JsonSerializer.Deserialize<GraphQLQuery>(json);
+                    
+                    var result = await documentExecuter.ExecuteAsync(new ExecutionOptions
+                    {
+                        Schema = schema,
+                        Query = query.Query,
+                        Variables = query.Variables != null ? new Inputs(query.Variables) : null,
+                        UserContext = new Dictionary<string, object>
+                        {
+                            ["dbContext"] = dbContext
+                        }
+                    });
+                    
+                    await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(result));
+                });
+            });
         }
+    }
+    
+    public class GraphQLQuery
+    {
+        public string Query { get; set; }
+        public Dictionary<string, object> Variables { get; set; }
     }
 }
